@@ -9,6 +9,9 @@ package com.nxc122430.contactmanagerapp;
 
 import android.content.Context;
 import android.content.Intent;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -17,17 +20,12 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Scanner;
 
 // This is the first activity. It will be a scrolling list with the names, last name first, of your contacts.
 // Your Action Bar should have buttons for adding a new contact or modifying an existing one.
@@ -37,6 +35,12 @@ public class MainActivity extends AppCompatActivity {
     // create variables
     ListView list;
     ArrayList<Person> contact = new ArrayList<Person>();
+    // for the shake sensor
+    private SensorManager sensorManager;
+    private Sensor shaken;
+    float x, y, z;
+    long lastUpdate = 0;
+    private static final float SHAKE_THRESHOLD = 3.25f;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -45,8 +49,11 @@ public class MainActivity extends AppCompatActivity {
         Context context = getApplicationContext();
 
         list = (ListView)findViewById(R.id.listView);
+        // get sensor
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        shaken = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
-        // getting motified or new person info
+        // getting modified or new person info
         Intent intent = getIntent();
         if (intent.getSerializableExtra("NewPerson") != null) {
             Person newPerson = (Person)intent.getSerializableExtra("NewPerson");
@@ -68,6 +75,39 @@ public class MainActivity extends AppCompatActivity {
         // add arraylist into listview
         ArrayAdapter<Person> arrayAdapter = new ArrayAdapter<Person>(this, android.R.layout.simple_list_item_1, contact );
         list.setAdapter(arrayAdapter);
+    }
+
+
+    public final void onSensorChanged(SensorEvent event) {
+
+        long curTime = System.currentTimeMillis();
+        long diffTime = (curTime - lastUpdate);
+        lastUpdate = curTime;
+
+        x = event.values[0];
+        y = event.values[1];
+        z = event.values[2];
+
+        double acceleration = Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2) + Math.pow(z, 2)) - SensorManager.GRAVITY_EARTH;
+
+        // if the phone is shaken then rearrange the list
+        if (acceleration > SHAKE_THRESHOLD) {
+            rearrangeList();
+        }
+
+    }
+
+    // rearrange the list
+    private void rearrangeList() {
+        for (int index = 1; index < contact.size(); index += 2) {
+            // Swap values at positions index-1 and index.
+            Person temp = contact.get(index-1);
+            // Save value before overwrite.
+            contact.set(index-1, contact.get(index));
+            // First half of swap.
+            contact.set(index, temp);
+            // Final operation for swap.
+        }
     }
 
     // read the file and store it into the array list
